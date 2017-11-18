@@ -30,3 +30,38 @@ func Or(chans ...<-chan interface{}) <-chan interface{} {
 
 	return orDone
 }
+
+// GenChan generate a channel based on raw input
+func GenChan(done <-chan interface{}, ints ...int) <-chan int {
+	ichan := make(chan int)
+	go func() {
+		defer close(ichan)
+		for _, i := range ints {
+			select {
+			case <-done:
+				return
+			case ichan <- i:
+			}
+		}
+	}()
+	return ichan
+}
+
+// MapInt is a mapper of int function
+type MapInt func(i int) int
+
+// ConsumeChan is pipeline for
+func ConsumeChan(done <-chan interface{}, ichan <-chan int, f MapInt) <-chan int{
+	mchan := make(chan int)
+	go func() {
+		defer close(mchan)
+		for i := range ichan {
+			select {
+			case <-done:
+				return
+			case mchan <- f(i):
+			}
+		}
+	}()
+	return mchan
+}

@@ -25,3 +25,13 @@ func TestOr(t *testing.T) {
 
 	fmt.Printf("done fater %v", time.Since(start))
 }
+
+func TestPipe(t *testing.T) {
+	f := func(i int) int {
+		return i * i;
+	}
+	for i := range ConsumeChan(nil, GenChan(nil, 1, 2, 3, 4, 5), f) {
+		fmt.Printf("%d ", i)
+	}
+	fmt.Println("Done")
+}
