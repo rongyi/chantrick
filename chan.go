@@ -51,7 +51,7 @@ func GenChan(done <-chan interface{}, ints ...int) <-chan int {
 type MapInt func(i int) int
 
 // ConsumeChan is pipeline for
-func ConsumeChan(done <-chan interface{}, ichan <-chan int, f MapInt) <-chan int{
+func ConsumeChan(done <-chan interface{}, ichan <-chan int, f MapInt) <-chan int {
 	mchan := make(chan int)
 	go func() {
 		defer close(mchan)
@@ -64,4 +64,39 @@ func ConsumeChan(done <-chan interface{}, ichan <-chan int, f MapInt) <-chan int
 		}
 	}()
 	return mchan
+}
+
+// Repeat just like generate but for ever
+func Repeat(done <-chan interface{}, valus ...interface{}) <-chan interface{} {
+	vs := make(chan interface{})
+	go func() {
+		defer close(vs)
+		for {
+			for _, v := range valus {
+				select {
+				case <-done:
+					return
+				case vs <- v:
+				}
+			}
+		}
+	}()
+
+	return vs
+}
+
+// Take take a limited number of element from vs
+func Take(done <-chan interface{}, vs <-chan interface{}, count int) <-chan interface{} {
+	tchan := make(chan interface{})
+	go func() {
+		defer close(tchan)
+		for i := 0; i < count; i++ {
+			select {
+			case <-done:
+				return
+			case tchan <- <-vs:
+			}
+		}
+	}()
+	return tchan
 }

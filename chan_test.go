@@ -35,3 +35,10 @@ func TestPipe(t *testing.T) {
 	}
 	fmt.Println("Done")
 }
+
+func TestRepeatAndTake(t *testing.T) {
+	for i := range Take(nil, Repeat(nil, 1, 2, 3, 4), 5) {
+		fmt.Printf("%d ", i)
+	}
+	fmt.Println("")
+}
