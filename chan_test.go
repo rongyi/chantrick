@@ -42,3 +42,16 @@ func TestRepeatAndTake(t *testing.T) {
 	}
 	fmt.Println("")
 }
+
+func TestFanIn(t *testing.T) {
+	done := make(chan interface{})
+	chans := make([]<-chan interface{}, 4)
+	for i := 0; i < len(chans); i++ {
+		chans[i] = Take(done, Repeat(done, 1, 2, 3, 4, 5), 1000)
+	}
+	for i := range Fanin(done, chans...) {
+		fmt.Printf("%d ", i)
+	}
+
+	fmt.Println("")
+}

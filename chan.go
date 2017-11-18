@@ -1,5 +1,9 @@
 package chantrick
 
+import (
+	"sync"
+)
+
 // Or just like circute or for channels
 func Or(chans ...<-chan interface{}) <-chan interface{} {
 	switch len(chans) {
@@ -99,4 +103,30 @@ func Take(done <-chan interface{}, vs <-chan interface{}, count int) <-chan inte
 		}
 	}()
 	return tchan
+}
+
+// Fanin 收口飞起的goroutine
+func Fanin(done <-chan interface{}, chans ...<-chan interface{}) <-chan interface{} {
+	var wg sync.WaitGroup
+	muChan := make(chan interface{})
+	doPlex := func(c <-chan interface{}) {
+		defer wg.Done()
+		for i := range c {
+			select {
+			case <-done:
+				return
+			case muChan <- i:
+			}
+		}
+	}
+
+	wg.Add(len(chans))
+	for _, c := range chans {
+		go doPlex(c)
+	}
+	go func() {
+		wg.Wait()
+		close(muChan)
+	}()
+	return muChan
 }
