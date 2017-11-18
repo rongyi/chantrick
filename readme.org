@@ -1,0 +1,2 @@
+* 关于
+《golang concurrency pattern》这本书上写的比较可以的一些channel pattern。
