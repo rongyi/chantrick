@@ -76,3 +76,23 @@ func TestTee(t *testing.T) {
 		fmt.Printf("out1: %v, out2 %v\n", val1, <-out2)
 	}
 }
+
+func TestBridge(t *testing.T) {
+	genVals := func() <-chan <-chan interface{} {
+		chch := make(chan (<-chan interface{}))
+		go func() {
+			defer close(chch)
+			for i := 0; i < 10; i++ {
+				s := make(chan interface{}, 1)
+				s <- i
+				close(s)
+				chch <- s
+			}
+		}()
+		return chch
+	}
+	for v := range Bridge(nil, genVals()) {
+		fmt.Printf("%v ", v)
+	}
+	fmt.Println("")
+}

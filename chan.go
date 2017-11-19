@@ -180,3 +180,30 @@ func Tee(done, in <-chan interface{}) (_, _ <-chan interface{}) {
 	}()
 	return out1, out2
 }
+
+// Bridge link multiple channel to one
+func Bridge(done <-chan interface{}, chch <-chan <-chan interface{}) <-chan interface{} {
+	vs := make(chan interface{})
+	go func() {
+		defer close(vs)
+		for {
+			var stream <-chan interface{}
+			select {
+			case <-done:
+				return
+			case maybe, ok := <-chch:
+				if ok == false {
+					return
+				}
+				stream = maybe
+			}
+			for val := range OrDone(done, stream) {
+				select {
+				case vs <- val:
+				case <-done:
+				}
+			}
+		}
+	}()
+	return vs
+}
