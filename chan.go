@@ -2,6 +2,7 @@ package chantrick
 
 import (
 	"sync"
+	"time"
 )
 
 // Or just like circute or for channels
@@ -206,4 +207,51 @@ func Bridge(done <-chan interface{}, chch <-chan <-chan interface{}) <-chan inte
 		}
 	}()
 	return vs
+}
+
+// HeartBeat
+func HeartBeat(done <-chan interface{}, pulseInterval time.Duration) (<-chan interface{}, <-chan time.Time) {
+	hb := make(chan interface{})
+	rets := make(chan time.Time)
+	go func() {
+		defer close(hb)
+		defer close(rets)
+
+		pulse := time.Tick(pulseInterval)
+		workGen := time.Tick(2 * pulseInterval)
+
+		sendPulse := func() {
+			select {
+			case hb<-struct {}{}:
+			default:
+			}
+		}
+
+		sendResult := func( r time.Time) {
+			for {
+				select {
+				case <-done:
+					return
+				// 保证正常逻辑的同时心跳也正常走
+				case <-pulse:
+					sendPulse()
+				case rets <- r:
+					return
+				}
+			}
+		}
+
+		for {
+			select {
+			case <-done:
+				return
+			case <-pulse:
+				sendPulse()
+			case r := <-workGen:
+				sendResult(r)
+			}
+		}
+	}()
+
+	return hb, rets
 }

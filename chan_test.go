@@ -96,3 +96,27 @@ func TestBridge(t *testing.T) {
 	}
 	fmt.Println("")
 }
+
+func TestHeartBeat(t *testing.T) {
+	done := make(chan interface{})
+	time.AfterFunc(10 * time.Second, func() {close(done)})
+
+	const timeout = 2 * time.Second
+	hb, rets := HeartBeat(done, timeout / 2)
+	for {
+		select {
+		case _, ok := <-hb:
+			if ok == false {
+				return
+			}
+			fmt.Println("pulse")
+		case r, ok := <-rets:
+			if ok == false {
+				return
+			}
+			fmt.Printf("results %v \n", r.Second())
+		case <-time.After(timeout):
+			return
+		}
+	}
+}
