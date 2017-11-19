@@ -130,3 +130,27 @@ func Fanin(done <-chan interface{}, chans ...<-chan interface{}) <-chan interfac
 	}()
 	return muChan
 }
+
+// OrDone wrap a done channel
+func OrDone(done, c <-chan interface{}) <-chan interface{} {
+	vs := make(chan interface{})
+	go func() {
+		defer close(vs)
+		for {
+			select {
+			case <-done:
+				return
+			case v, ok := <-c:
+				if ok == false {
+					return
+				}
+				select {
+				case vs <- v:
+				case <-done:
+				}
+			}
+		}
+	}()
+
+	return vs
+}

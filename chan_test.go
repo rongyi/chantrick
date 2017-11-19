@@ -55,3 +55,14 @@ func TestFanIn(t *testing.T) {
 
 	fmt.Println("")
 }
+
+func TestOrDone(t *testing.T) {
+	ichan := make(chan interface{}, 5)
+	for i  := 0; i < 5; i++ {
+		ichan <- i
+	}
+	close(ichan)
+	for v := range OrDone(nil, ichan) {
+		fmt.Println(v)
+	}
+}
