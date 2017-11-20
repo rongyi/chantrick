@@ -1,6 +1,7 @@
 package chantrick
 
 import (
+	"log"
 	"sync"
 	"time"
 )
@@ -222,12 +223,12 @@ func HeartBeat(done <-chan interface{}, pulseInterval time.Duration) (<-chan int
 
 		sendPulse := func() {
 			select {
-			case hb<-struct {}{}:
+			case hb <- struct{}{}:
 			default:
 			}
 		}
 
-		sendResult := func( r time.Time) {
+		sendResult := func(r time.Time) {
 			for {
 				select {
 				case <-done:
@@ -254,4 +255,47 @@ func HeartBeat(done <-chan interface{}, pulseInterval time.Duration) (<-chan int
 	}()
 
 	return hb, rets
+}
+
+type Worker func(done <-chan interface{}, normalInterval time.Duration) <-chan interface{}
+
+func Watchdog(timeout time.Duration, work Worker) Worker {
+	return func(done <-chan interface{}, normalInterval time.Duration) <-chan interface{} {
+		hb := make(chan interface{})
+		go func() {
+			defer close(hb)
+			var wardDone chan interface{}
+			var wardHeartbeat <-chan interface{}
+
+			startWard := func() {
+				wardDone = make(chan interface{})
+				wardHeartbeat = work(Or(wardDone, done), normalInterval)
+			}
+			startWard()
+			pulse := time.Tick(normalInterval)
+		monitorLoop:
+			for {
+				timeoutSignal := time.After(timeout)
+				for {
+					select {
+					case <-pulse:
+						select {
+						case hb <- struct{}{}:
+						default:
+						}
+					case <-wardHeartbeat:
+						continue monitorLoop
+					case <-timeoutSignal:
+						close(wardDone)
+						log.Println("start a new one")
+						startWard()
+						continue monitorLoop
+					case <-done:
+						return
+					}
+				}
+			}
+		}()
+		return hb
+	}
 }

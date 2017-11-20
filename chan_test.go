@@ -1,8 +1,10 @@
 package chantrick
+
 import (
+	"fmt"
+	"log"
 	"testing"
 	"time"
-	"fmt"
 )
 
 func TestOr(t *testing.T) {
@@ -17,10 +19,10 @@ func TestOr(t *testing.T) {
 
 	start := time.Now()
 
-	<-Or(sig(2 * time.Hour),
-		sig(2 * time.Minute),
-		sig(3 * time.Second),
-		sig(5 * time.Minute),
+	<-Or(sig(2*time.Hour),
+		sig(2*time.Minute),
+		sig(3*time.Second),
+		sig(5*time.Minute),
 	)
 
 	fmt.Printf("done fater %v", time.Since(start))
@@ -28,7 +30,7 @@ func TestOr(t *testing.T) {
 
 func TestPipe(t *testing.T) {
 	f := func(i int) int {
-		return i * i;
+		return i * i
 	}
 	for i := range ConsumeChan(nil, GenChan(nil, 1, 2, 3, 4, 5), f) {
 		fmt.Printf("%d ", i)
@@ -58,7 +60,7 @@ func TestFanIn(t *testing.T) {
 
 func TestOrDone(t *testing.T) {
 	ichan := make(chan interface{}, 5)
-	for i  := 0; i < 5; i++ {
+	for i := 0; i < 5; i++ {
 		ichan <- i
 	}
 	close(ichan)
@@ -99,10 +101,10 @@ func TestBridge(t *testing.T) {
 
 func TestHeartBeat(t *testing.T) {
 	done := make(chan interface{})
-	time.AfterFunc(10 * time.Second, func() {close(done)})
+	time.AfterFunc(10*time.Second, func() { close(done) })
 
 	const timeout = 2 * time.Second
-	hb, rets := HeartBeat(done, timeout / 2)
+	hb, rets := HeartBeat(done, timeout/2)
 	for {
 		select {
 		case _, ok := <-hb:
@@ -119,4 +121,57 @@ func TestHeartBeat(t *testing.T) {
 			return
 		}
 	}
+}
+
+func TestWatchdogNormal(t *testing.T) {
+	log.SetFlags(log.Ltime | log.LUTC)
+	doWork := func(done <-chan interface{}, n time.Duration) <-chan interface{} {
+		log.Println("ward: Hello, I'm normal")
+		// go func() {
+		// 	<-done
+		// 	log.Println("ward: Iam halting.")
+		// }()
+
+		ch := make(chan interface{})
+		go func() {
+			for {
+				time.Sleep(time.Second * 1)
+				log.Println("working...")
+				ch <- struct{}{}
+			}
+		}()
+		return ch
+	}
+	doWorkWithSteward := Watchdog(4*time.Second, doWork)
+
+	done := make(chan interface{})
+	time.AfterFunc(9*time.Second, func() {
+		log.Println("main: halting steward and ward")
+		close(done)
+	})
+	for range doWorkWithSteward(done, 2*time.Second) {
+	}
+	log.Println("Done")
+}
+
+func TestWatchdogAbnormal(t *testing.T) {
+	log.SetFlags(log.Ltime | log.LUTC)
+	doWork := func(done <-chan interface{}, n time.Duration) <-chan interface{} {
+		log.Println("ward: Hello, I'm bastard, do nothing and halt intentionally")
+		go func() {
+			<-done
+			log.Println("ward: shit, they kill me")
+		}()
+		return nil
+	}
+	doWorkWithSteward := Watchdog(4*time.Second, doWork)
+
+	done := make(chan interface{})
+	time.AfterFunc(9*time.Second, func() {
+		log.Println("main: halting steward and ward")
+		close(done)
+	})
+	for range doWorkWithSteward(done, 2*time.Second) {
+	}
+	log.Println("Done")
 }
